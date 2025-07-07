@@ -166,10 +166,10 @@ If you need to disable authentication (NOT RECOMMENDED), you can set the `DANGER
 DANGEROUSLY_OMIT_AUTH=true npm start
 ```
 
-You can also set the token via the `MCP_PROXY_TOKEN` environment variable when starting the server:
+You can also set the token via the `MCP_PROXY_AUTH_TOKEN` environment variable when starting the server:
 
 ```bash
-MCP_PROXY_TOKEN=$(openssl rand -hex 32) npm start
+MCP_PROXY_AUTH_TOKEN=$(openssl rand -hex 32) npm start
 ```
 
 #### Local-only Binding
