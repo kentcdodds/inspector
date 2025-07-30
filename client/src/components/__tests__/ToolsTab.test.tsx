@@ -50,6 +50,8 @@ describe("ToolsTab", () => {
     listTools: jest.fn(),
     clearTools: jest.fn(),
     callTool: jest.fn(async () => {}),
+    cancelTool: jest.fn(),
+    isToolRunning: false,
     selectedTool: null,
     setSelectedTool: jest.fn(),
     toolResult: null,
@@ -135,40 +137,130 @@ describe("ToolsTab", () => {
   });
 
   it("should disable button and change text while tool is running", async () => {
-    // Create a promise that we can resolve later
-    let resolvePromise: ((value: unknown) => void) | undefined;
-    const mockPromise = new Promise((resolve) => {
-      resolvePromise = resolve;
-    });
-
-    // Mock callTool to return our promise
-    const mockCallTool = jest.fn().mockReturnValue(mockPromise);
-
-    renderToolsTab({
+    // Test with isToolRunning=false first
+    const { rerender } = renderToolsTab({
       selectedTool: mockTools[0],
-      callTool: mockCallTool,
+      isToolRunning: false,
     });
 
     const submitButton = screen.getByRole("button", { name: /run tool/i });
     expect(submitButton.getAttribute("disabled")).toBeNull();
+    expect(submitButton.textContent).toBe("Run Tool");
 
-    // Click the button and verify immediate state changes
-    await act(async () => {
-      fireEvent.click(submitButton);
-    });
+    // Rerender with isToolRunning=true to simulate tool running
+    rerender(
+      <Tabs defaultValue="tools">
+        <ToolsTab
+          {...defaultProps}
+          selectedTool={mockTools[0]}
+          isToolRunning={true}
+        />
+      </Tabs>,
+    );
 
     // Verify button is disabled and text changed
-    expect(submitButton.getAttribute("disabled")).not.toBeNull();
-    expect(submitButton.textContent).toBe("Running...");
+    const runningButton = screen.getByRole("button", { name: /running/i });
+    expect(runningButton.getAttribute("disabled")).not.toBeNull();
+    expect(runningButton.textContent).toBe("Running...");
 
-    // Resolve the promise to simulate tool completion
-    await act(async () => {
-      if (resolvePromise) {
-        await resolvePromise({});
-      }
+    // Rerender with isToolRunning=false to simulate completion
+    rerender(
+      <Tabs defaultValue="tools">
+        <ToolsTab
+          {...defaultProps}
+          selectedTool={mockTools[0]}
+          isToolRunning={false}
+        />
+      </Tabs>,
+    );
+
+    const completedButton = screen.getByRole("button", { name: /run tool/i });
+    expect(completedButton.getAttribute("disabled")).toBeNull();
+    expect(completedButton.textContent).toBe("Run Tool");
+  });
+
+  describe("Tool Cancellation", () => {
+    it("should not show cancel button when tool is not running", () => {
+      renderToolsTab({
+        selectedTool: mockTools[0],
+        isToolRunning: false,
+      });
+
+      const cancelButton = screen.queryByRole("button", { name: /cancel/i });
+      expect(cancelButton).not.toBeInTheDocument();
     });
 
-    expect(submitButton.getAttribute("disabled")).toBeNull();
+    it("should show cancel button when tool is running", () => {
+      renderToolsTab({
+        selectedTool: mockTools[0],
+        isToolRunning: true,
+      });
+
+      const cancelButton = screen.getByRole("button", { name: "" }); // X icon button
+      expect(cancelButton).toBeInTheDocument();
+      expect(cancelButton).toHaveClass("px-3"); // Cancel button styling
+    });
+
+    it("should call cancelTool when cancel button is clicked", async () => {
+      const mockCancelTool = jest.fn();
+
+      renderToolsTab({
+        selectedTool: mockTools[0],
+        isToolRunning: true,
+        cancelTool: mockCancelTool,
+      });
+
+      const cancelButton = screen.getByRole("button", { name: "" }); // X icon button
+
+      await act(async () => {
+        fireEvent.click(cancelButton);
+      });
+
+      expect(mockCancelTool).toHaveBeenCalledTimes(1);
+    });
+
+    it("should disable run button when tool is running", () => {
+      renderToolsTab({
+        selectedTool: mockTools[0],
+        isToolRunning: true,
+      });
+
+      const runButton = screen.getByRole("button", { name: /running/i });
+      expect(runButton).toBeDisabled();
+      expect(runButton.textContent).toBe("Running...");
+    });
+
+    it("should show both run and cancel buttons with proper layout when running", () => {
+      renderToolsTab({
+        selectedTool: mockTools[0],
+        isToolRunning: true,
+      });
+
+      const runButton = screen.getByRole("button", { name: /running/i });
+      const cancelButton = screen.getByRole("button", { name: "" }); // X icon button
+
+      expect(runButton).toBeInTheDocument();
+      expect(cancelButton).toBeInTheDocument();
+
+      // Check that they are in a flex container
+      const buttonContainer = runButton.parentElement;
+      expect(buttonContainer).toHaveClass("flex", "gap-2");
+      expect(runButton).toHaveClass("flex-1"); // Run button takes remaining space
+    });
+
+    it("should not call cancelTool when no tool is running", () => {
+      const mockCancelTool = jest.fn();
+
+      renderToolsTab({
+        selectedTool: mockTools[0],
+        isToolRunning: false,
+        cancelTool: mockCancelTool,
+      });
+
+      // No cancel button should be present
+      const cancelButton = screen.queryByRole("button", { name: "" });
+      expect(cancelButton).not.toBeInTheDocument();
+    });
   });
 
   describe("Output Schema Display", () => {
