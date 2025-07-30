@@ -92,6 +92,7 @@ const App = () => {
   const [tools, setTools] = useState<Tool[]>([]);
   const [toolResult, setToolResult] =
     useState<CompatibilityCallToolResult | null>(null);
+  const [toolAbortController, setToolAbortController] = useState<AbortController | null>(null);
   const [errors, setErrors] = useState<Record<string, string | null>>({
     resources: null,
     prompts: null,
@@ -702,8 +703,12 @@ const App = () => {
   const callTool = async (name: string, params: Record<string, unknown>) => {
     lastToolCallOriginTabRef.current = currentTabRef.current;
 
+    // Create and store abort controller for this tool call
+    const abortController = new AbortController();
+    setToolAbortController(abortController);
+
     try {
-      const response = await sendMCPRequest(
+      const response = await makeRequest(
         {
           method: "tools/call" as const,
           params: {
@@ -715,21 +720,49 @@ const App = () => {
           },
         },
         CompatibilityCallToolResultSchema,
-        "tools",
+        { signal: abortController.signal },
       );
 
       setToolResult(response);
+      clearError("tools");
     } catch (e) {
-      const toolResult: CompatibilityCallToolResult = {
-        content: [
-          {
-            type: "text",
-            text: (e as Error).message ?? String(e),
-          },
-        ],
-        isError: true,
-      };
-      setToolResult(toolResult);
+      // Check if the error is due to cancellation
+      if (abortController.signal.aborted) {
+        const toolResult: CompatibilityCallToolResult = {
+          content: [
+            {
+              type: "text",
+              text: "Tool execution was cancelled",
+            },
+          ],
+          isError: false,
+        };
+        setToolResult(toolResult);
+      } else {
+        const toolResult: CompatibilityCallToolResult = {
+          content: [
+            {
+              type: "text",
+              text: (e as Error).message ?? String(e),
+            },
+          ],
+          isError: true,
+        };
+        setToolResult(toolResult);
+        setErrors((prev) => ({
+          ...prev,
+          tools: (e as Error).message ?? String(e),
+        }));
+      }
+    } finally {
+      // Clear the abort controller when the tool call is complete
+      setToolAbortController(null);
+    }
+  };
+
+  const cancelTool = () => {
+    if (toolAbortController) {
+      toolAbortController.abort();
     }
   };
 
@@ -1020,6 +1053,8 @@ const App = () => {
                         setToolResult(null);
                         await callTool(name, params);
                       }}
+                      cancelTool={cancelTool}
+                      isToolRunning={toolAbortController !== null}
                       selectedTool={selectedTool}
                       setSelectedTool={(tool) => {
                         clearError("tools");
