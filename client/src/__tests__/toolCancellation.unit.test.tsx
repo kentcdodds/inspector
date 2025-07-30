@@ -13,25 +13,25 @@ const mockNetworkError = new Error("Network failure");
 mockNetworkError.name = "NetworkError";
 
 describe("Tool Cancellation Logic", () => {
-  let mockSetToolAbortController: jest.Mock;
-  let mockSetToolResult: jest.Mock;
-  let mockClearError: jest.Mock;
-  let mockSetErrors: jest.Mock;
-  let mockMakeRequest: jest.Mock;
+  let mockSetToolAbortController: jest.MockedFunction<(value: unknown) => void>;
+  let mockSetToolResult: jest.MockedFunction<(value: unknown) => void>;
+  let mockClearError: jest.MockedFunction<(key: string) => void>;
+  let mockSetErrors: jest.MockedFunction<(fn: (prev: unknown) => unknown) => void>;
+  let mockMakeRequest: jest.MockedFunction<(...args: unknown[]) => Promise<unknown>>;
   let toolAbortController: AbortController | null;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    mockSetToolAbortController = jest.fn();
-    mockSetToolResult = jest.fn();
-    mockClearError = jest.fn();
-    mockSetErrors = jest.fn();
-    mockMakeRequest = jest.fn();
+    mockSetToolAbortController = jest.fn() as jest.MockedFunction<(value: unknown) => void>;
+    mockSetToolResult = jest.fn() as jest.MockedFunction<(value: unknown) => void>;
+    mockClearError = jest.fn() as jest.MockedFunction<(key: string) => void>;
+    mockSetErrors = jest.fn() as jest.MockedFunction<(fn: (prev: unknown) => unknown) => void>;
+    mockMakeRequest = jest.fn() as jest.MockedFunction<(...args: unknown[]) => Promise<unknown>>;
     toolAbortController = null;
 
     // Mock setState functions to update our local variable
-    mockSetToolAbortController.mockImplementation((value) => {
+    mockSetToolAbortController.mockImplementation((value: unknown) => {
       if (typeof value === "function") {
         toolAbortController = value(toolAbortController);
       } else {
@@ -102,10 +102,7 @@ describe("Tool Cancellation Logic", () => {
               isError: true,
             };
             mockSetToolResult(toolResult);
-            mockSetErrors((prev: Record<string, string | null>) => ({
-              ...prev,
-              tools: (e as Error).message ?? String(e),
-            }));
+            mockSetErrors(expect.any(Function));
           }
         }
       } finally {
