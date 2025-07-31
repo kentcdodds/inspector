@@ -13,7 +13,7 @@ import {
   ListToolsResult,
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
-import { Loader2, Send, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Send, ChevronDown, ChevronUp, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import ListPane from "./ListPane";
 import JsonView from "./JsonView";
@@ -24,6 +24,8 @@ const ToolsTab = ({
   listTools,
   clearTools,
   callTool,
+  cancelTool,
+  isToolRunning,
   selectedTool,
   setSelectedTool,
   toolResult,
@@ -35,6 +37,8 @@ const ToolsTab = ({
   listTools: () => void;
   clearTools: () => void;
   callTool: (name: string, params: Record<string, unknown>) => Promise<void>;
+  cancelTool: () => void;
+  isToolRunning: boolean;
   selectedTool: Tool | null;
   setSelectedTool: (tool: Tool | null) => void;
   toolResult: CompatibilityCallToolResult | null;
@@ -44,7 +48,6 @@ const ToolsTab = ({
   onReadResource?: (uri: string) => void;
 }) => {
   const [params, setParams] = useState<Record<string, unknown>>({});
-  const [isToolRunning, setIsToolRunning] = useState(false);
   const [isOutputSchemaExpanded, setIsOutputSchemaExpanded] = useState(false);
 
   useEffect(() => {
@@ -245,29 +248,37 @@ const ToolsTab = ({
                     </div>
                   </div>
                 )}
-                <Button
-                  onClick={async () => {
-                    try {
-                      setIsToolRunning(true);
+                <div className="flex gap-2">
+                  <Button
+                    onClick={async () => {
                       await callTool(selectedTool.name, params);
-                    } finally {
-                      setIsToolRunning(false);
-                    }
-                  }}
-                  disabled={isToolRunning}
-                >
-                  {isToolRunning ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Running...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4 mr-2" />
-                      Run Tool
-                    </>
+                    }}
+                    disabled={isToolRunning}
+                    className="flex-1"
+                  >
+                    {isToolRunning ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Running...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4 mr-2" />
+                        Run Tool
+                      </>
+                    )}
+                  </Button>
+                  {isToolRunning && (
+                    <Button
+                      onClick={cancelTool}
+                      variant="outline"
+                      size="default"
+                      className="px-3"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
                   )}
-                </Button>
+                </div>
                 <ToolResults
                   toolResult={toolResult}
                   selectedTool={selectedTool}

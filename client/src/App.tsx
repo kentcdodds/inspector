@@ -92,6 +92,8 @@ const App = () => {
   const [tools, setTools] = useState<Tool[]>([]);
   const [toolResult, setToolResult] =
     useState<CompatibilityCallToolResult | null>(null);
+  const [toolAbortController, setToolAbortController] =
+    useState<AbortController | null>(null);
   const [errors, setErrors] = useState<Record<string, string | null>>({
     resources: null,
     prompts: null,
@@ -700,10 +702,19 @@ const App = () => {
   };
 
   const callTool = async (name: string, params: Record<string, unknown>) => {
+    // Prevent concurrent tool calls
+    if (toolAbortController) {
+      return;
+    }
+
     lastToolCallOriginTabRef.current = currentTabRef.current;
 
+    // Create and store abort controller for this tool call
+    const abortController = new AbortController();
+    setToolAbortController(abortController);
+
     try {
-      const response = await sendMCPRequest(
+      const response = await makeRequest(
         {
           method: "tools/call" as const,
           params: {
@@ -715,21 +726,59 @@ const App = () => {
           },
         },
         CompatibilityCallToolResultSchema,
-        "tools",
+        { signal: abortController.signal },
       );
 
-      setToolResult(response);
+      // Only update state if this controller is still the active one
+      if (toolAbortController === abortController) {
+        setToolResult(response);
+        clearError("tools");
+      }
     } catch (e) {
-      const toolResult: CompatibilityCallToolResult = {
-        content: [
-          {
-            type: "text",
-            text: (e as Error).message ?? String(e),
-          },
-        ],
-        isError: true,
-      };
-      setToolResult(toolResult);
+      // Only handle error if this controller is still the active one
+      if (toolAbortController === abortController) {
+        // Check if the error is due to cancellation using proper AbortError detection
+        if (e instanceof Error && e.name === "AbortError") {
+          const toolResult: CompatibilityCallToolResult = {
+            content: [
+              {
+                type: "text",
+                text: "Tool execution was cancelled",
+              },
+            ],
+            isError: false,
+          };
+          setToolResult(toolResult);
+          // Clear errors on cancellation
+          clearError("tools");
+        } else {
+          const toolResult: CompatibilityCallToolResult = {
+            content: [
+              {
+                type: "text",
+                text: (e as Error).message ?? String(e),
+              },
+            ],
+            isError: true,
+          };
+          setToolResult(toolResult);
+          setErrors((prev) => ({
+            ...prev,
+            tools: (e as Error).message ?? String(e),
+          }));
+        }
+      }
+    } finally {
+      // Only clear the abort controller if this is still the active one
+      if (toolAbortController === abortController) {
+        setToolAbortController(null);
+      }
+    }
+  };
+
+  const cancelTool = () => {
+    if (toolAbortController) {
+      toolAbortController.abort();
     }
   };
 
@@ -1020,6 +1069,8 @@ const App = () => {
                         setToolResult(null);
                         await callTool(name, params);
                       }}
+                      cancelTool={cancelTool}
+                      isToolRunning={toolAbortController !== null}
                       selectedTool={selectedTool}
                       setSelectedTool={(tool) => {
                         clearError("tools");
