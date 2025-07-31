@@ -16,18 +16,30 @@ describe("Tool Cancellation Logic", () => {
   let mockSetToolAbortController: jest.MockedFunction<(value: unknown) => void>;
   let mockSetToolResult: jest.MockedFunction<(value: unknown) => void>;
   let mockClearError: jest.MockedFunction<(key: string) => void>;
-  let mockSetErrors: jest.MockedFunction<(fn: (prev: unknown) => unknown) => void>;
-  let mockMakeRequest: jest.MockedFunction<(...args: unknown[]) => Promise<unknown>>;
+  let mockSetErrors: jest.MockedFunction<
+    (fn: (prev: unknown) => unknown) => void
+  >;
+  let mockMakeRequest: jest.MockedFunction<
+    (...args: unknown[]) => Promise<unknown>
+  >;
   let toolAbortController: AbortController | null;
 
   beforeEach(() => {
     jest.clearAllMocks();
 
-    mockSetToolAbortController = jest.fn() as jest.MockedFunction<(value: unknown) => void>;
-    mockSetToolResult = jest.fn() as jest.MockedFunction<(value: unknown) => void>;
+    mockSetToolAbortController = jest.fn() as jest.MockedFunction<
+      (value: unknown) => void
+    >;
+    mockSetToolResult = jest.fn() as jest.MockedFunction<
+      (value: unknown) => void
+    >;
     mockClearError = jest.fn() as jest.MockedFunction<(key: string) => void>;
-    mockSetErrors = jest.fn() as jest.MockedFunction<(fn: (prev: unknown) => unknown) => void>;
-    mockMakeRequest = jest.fn() as jest.MockedFunction<(...args: unknown[]) => Promise<unknown>>;
+    mockSetErrors = jest.fn() as jest.MockedFunction<
+      (fn: (prev: unknown) => unknown) => void
+    >;
+    mockMakeRequest = jest.fn() as jest.MockedFunction<
+      (...args: unknown[]) => Promise<unknown>
+    >;
     toolAbortController = null;
 
     // Mock setState functions to update our local variable
